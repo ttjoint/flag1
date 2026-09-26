@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b12" />
+    <title>旗影 · Cloth Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <div>
+            <p class="eyebrow">REAL-TIME CLOTH STUDY</p>
+            <h1>旗影 <span>/</span> FLAG LAB</h1>
+          </div>
+        </div>
+        <div class="status-pill"><span class="status-dot"></span><span id="simulationStatus">SIMULATION LIVE</span></div>
+      </header>
+
+      <section class="stage-card" aria-label="旗帜模拟预览">
+        <div id="canvasHost" class="canvas-host"></div>
+      </section>
+
+      <section class="control-grid" aria-label="模拟控制面板">
+        <div class="control-panel panel-main">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">PHYSICS ENGINE</p>
+              <h2>风场与布料</h2>
+            </div>
+            <span class="panel-index">01 / 03</span>
+          </div>
+
+          <div class="control-block wind-block">
+            <div class="control-label-row"><label for="windSpeed">风速</label><output id="windValue">32 <small>KM/H</small></output></div>
+            <input id="windSpeed" class="range range-wind" type="range" min="0" max="100" value="58" />
+            <div class="range-scale"><span>静止</span><span>微风</span><span>强风</span><span>暴风</span></div>
+          </div>
+
+          <div class="control-block">
+            <div class="control-label-row"><label for="gustiness">阵风扰动</label><output id="gustValue">68<small>%</small></output></div>
+            <input id="gustiness" class="range" type="range" min="0" max="100" value="82" />
+          </div>
+
+          <div class="toggle-row">
+            <div><strong>自动风向</strong><span>让风场沿旗面轻微摆动</span></div>
+            <label class="switch"><input id="autoWind" type="checkbox" checked /><span></span></label>
+          </div>
+        </div>
+
+        <div class="control-panel panel-camera">
+          <div class="panel-heading">
+            <div><p class="eyebrow">CAMERA RIG</p><h2>观看方式</h2></div>
+            <div class="panel-heading-actions"><button id="resetViewButton" class="panel-reset" type="button">重置视角</button><span class="panel-index">02 / 03</span></div>
+          </div>
+          <div class="control-block compact-control"><div class="control-label-row"><label for="cameraAzimuth">水平角度</label><output id="azimuthValue">−18<small>°</small></output></div><input id="cameraAzimuth" class="range" type="range" min="-70" max="70" value="-18" /></div>
+          <div class="control-block compact-control"><div class="control-label-row"><label for="cameraElevation">垂直角度</label><output id="elevationValue">12<small>°</small></output></div><input id="cameraElevation" class="range" type="range" min="-10" max="55" value="12" /></div>
+          <div class="control-block compact-control"><div class="control-label-row"><label for="cameraDistance">距离</label><output id="distanceValue">7.2<small>M</small></output></div><input id="cameraDistance" class="range" type="range" min="3.5" max="12" step="0.1" value="7.2" /></div>
+        </div>
+
+        <div class="control-panel panel-assets">
+          <div class="panel-heading">
+            <div><p class="eyebrow">SCENE &amp; FLAG</p><h2>素材库</h2></div>
+            <span class="panel-index">03 / 03</span>
+          </div>
+          <div class="field-group"><label for="environmentSelect">天体球背景</label><div class="select-wrap"><select id="environmentSelect"></select><span>⌄</span></div></div>
+          <div class="control-block compact-control background-rotation-control"><div class="control-label-row"><label for="backgroundRotation">背景旋转</label><output id="backgroundRotationValue">0<small>°</small></output></div><input id="backgroundRotation" class="range" type="range" min="-180" max="180" value="0" /></div>
+          <div class="upload-actions">
+            <button class="upload-card" id="flagUploadButton" type="button"><span class="upload-icon">↑</span><span><b>上传旗帜</b><small>SVG / PNG / JPG / WEBP / GIF</small></span><span class="arrow">↗</span></button>
+            <button class="upload-card secondary" id="environmentUploadButton" type="button"><span class="upload-icon">＋</span><span><b>自定义天体球</b><small>选择 .EXR 文件替换背景</small></span><span class="arrow">↗</span></button>
+            <input id="flagInput" type="file" accept="image/svg+xml,image/png,image/jpeg,image/webp,image/gif" hidden />
+            <input id="environmentInput" type="file" accept=".exr,image/*" hidden />
+          </div>
+          <div class="asset-meta"><span class="asset-thumb" id="flagThumb"><span>F</span></span><div><b id="flagFileName">default / signal-red</b><small id="flagFileType">PROCEDURAL TEXTURE · 4:3</small></div><button id="clearFlagButton" class="clear-button" type="button" aria-label="恢复默认旗帜">×</button></div>
+        </div>
+      </section>
+
+      <footer class="footer-bar"><span>POSITION-BASED DYNAMICS <i></i> DOUBLE-SIDED FABRIC</span><span>BUILT FOR EXPLORATION <b>✦</b></span></footer>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
