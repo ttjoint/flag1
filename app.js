@@ -51,8 +51,8 @@ controls.dampingFactor = 0.065;
 controls.panSpeed = 0.9;
 controls.minDistance = 3.5;
 controls.maxDistance = 12;
-controls.minPolarAngle = THREE.MathUtils.degToRad(35);
-controls.maxPolarAngle = THREE.MathUtils.degToRad(100);
+controls.minPolarAngle = 0.0001;
+controls.maxPolarAngle = Math.PI - 0.0001;
 controls.target.copy(cameraTarget);
 renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
 
@@ -65,6 +65,18 @@ rimLight.position.set(4, 2, -4);
 scene.add(rimLight);
 
 const rig = { poleX: -1.55, poleBottom: -0.35, poleTop: 5.25, flagHeight: 2.1 };
+// Shared hoist line for the pulley, halyard, grommets, and pinned cloth.
+const hoist = {
+  x: rig.poleX,
+  z: 0.065,
+  pulleyY: rig.poleTop - 0.10,
+  topY: rig.poleTop - 0.155,
+  get bottomY() { return this.topY - rig.flagHeight; },
+  point(t) {
+    const sag = 0.028 * Math.sin(t * Math.PI);
+    return new THREE.Vector3(this.x, this.topY - t * rig.flagHeight - sag, this.z + 0.014 * Math.sin(t * Math.PI));
+  }
+};
 const poleMaterial = new THREE.MeshPhysicalMaterial({ color: 0x718096, metalness: 1, roughness: 0.14, clearcoat: 0.82, clearcoatRoughness: 0.1 });
 const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.058, rig.poleTop - rig.poleBottom, 20), poleMaterial);
 pole.position.set(rig.poleX, (rig.poleTop + rig.poleBottom) / 2, 0);
@@ -78,39 +90,52 @@ scene.add(base);
 
 const ropeMaterial = new THREE.MeshStandardMaterial({ color: 0x8a512e, roughness: .96, metalness: 0.01 });
 const ropePoints = Array.from({ length: 13 }, (_, index) => {
-  const t = index / 12;
-  return new THREE.Vector3(
-    rig.poleX,
-    rig.poleTop - t * rig.flagHeight - 0.055 * Math.sin(t * Math.PI),
-    0.16 + 0.045 * Math.sin(t * Math.PI)
-  );
+  return hoist.point(index / 12);
 });
 const ropeCurve = new THREE.CatmullRomCurve3(ropePoints);
-const rope = new THREE.Mesh(new THREE.TubeGeometry(ropeCurve, 32, 0.016, 8, false), ropeMaterial);
+const rope = new THREE.Mesh(new THREE.TubeGeometry(ropeCurve, 32, 0.012, 8, false), ropeMaterial);
 scene.add(rope);
 
 const pulleyMaterial = new THREE.MeshPhysicalMaterial({ color: 0x8b96aa, metalness: 1, roughness: .16, clearcoat: .75, clearcoatRoughness: .1 });
 const pulleyGroup = new THREE.Group();
-pulleyGroup.position.set(rig.poleX, rig.poleTop - .12, .2);
-for (const offset of [-.055, .055]) {
-  const wheel = new THREE.Mesh(new THREE.TorusGeometry(.09, .014, 10, 24), pulleyMaterial);
-  wheel.position.x = offset;
-  pulleyGroup.add(wheel);
-}
-const pulleyAxle = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .18, 12), pulleyMaterial);
+pulleyGroup.position.set(hoist.x, hoist.pulleyY, hoist.z);
+const wheel = new THREE.Mesh(new THREE.TorusGeometry(.045, .008, 8, 20), pulleyMaterial);
+pulleyGroup.add(wheel);
+const pulleyAxle = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .11, 12), pulleyMaterial);
 pulleyAxle.rotation.x = Math.PI / 2;
 pulleyGroup.add(pulleyAxle);
 scene.add(pulleyGroup);
 
 const halyardPoints = [
-  new THREE.Vector3(rig.poleX + .12, rig.poleTop - .015, .2),
-  new THREE.Vector3(rig.poleX + .14, rig.poleTop - .22, .2),
-  new THREE.Vector3(rig.poleX + .12, rig.poleBottom + .22, .2),
-  new THREE.Vector3(rig.poleX + .1, rig.poleBottom + .08, .2)
+  new THREE.Vector3(hoist.x, hoist.topY, hoist.z),
+  new THREE.Vector3(hoist.x + .038, hoist.pulleyY - .028, hoist.z),
+  new THREE.Vector3(hoist.x + .045, hoist.pulleyY + .012, hoist.z),
+  new THREE.Vector3(hoist.x, hoist.pulleyY + .045, hoist.z),
+  new THREE.Vector3(hoist.x - .045, hoist.pulleyY + .012, hoist.z),
+  new THREE.Vector3(hoist.x - .052, hoist.pulleyY - .015, hoist.z),
+  new THREE.Vector3(hoist.x - .052, rig.poleBottom + .22, hoist.z),
+  new THREE.Vector3(hoist.x - .052, rig.poleBottom + .10, hoist.z)
 ];
-const halyardCurve = new THREE.CatmullRomCurve3(halyardPoints);
-const halyard = new THREE.Mesh(new THREE.TubeGeometry(halyardCurve, 48, .011, 7, false), ropeMaterial);
+const halyardCurve = new THREE.CatmullRomCurve3(halyardPoints, false, "centripetal", 0.35);
+const halyard = new THREE.Mesh(new THREE.TubeGeometry(halyardCurve, 56, .008, 7, false), ropeMaterial);
 scene.add(halyard);
+
+// Two small metal grommets sit on the hoist edge of the flag. The pulley
+// wheels remain at the cap; the thin halyard runs down the back of the pole.
+const grommetMaterial = new THREE.MeshPhysicalMaterial({ color: 0xa9b3c4, metalness: 1, roughness: .22, clearcoat: .7, clearcoatRoughness: .12 });
+const grommets = new THREE.Group();
+for (const t of [0, 1]) {
+  const grommet = new THREE.Mesh(new THREE.TorusGeometry(.032, .007, 8, 20), grommetMaterial);
+  grommet.position.copy(hoist.point(t));
+  grommets.add(grommet);
+}
+scene.add(grommets);
+
+// A UV-mapped inverted sphere makes the EXR visibly rotatable around the camera.
+const backgroundDomeMaterial = new THREE.MeshBasicMaterial({ side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false });
+const backgroundDome = new THREE.Mesh(new THREE.SphereGeometry(50, 64, 32), backgroundDomeMaterial);
+backgroundDome.renderOrder = -100;
+scene.add(backgroundDome);
 
 class ClothSimulation {
   constructor(width = 2.9, height = rig.flagHeight, cols = 58, rows = 36) {
@@ -123,18 +148,40 @@ class ClothSimulation {
     this.constraints = [];
     this.tmp = new THREE.Vector3();
     this.tmp2 = new THREE.Vector3();
+    this.tmp3 = new THREE.Vector3();
+    this.tmp4 = new THREE.Vector3();
     this.windVector = new THREE.Vector3();
+    this.windDirection = new THREE.Vector3();
     this.reset();
     this.buildConstraints();
+    // X is the hoist-to-fly direction; the pinned column is therefore the
+    // actual left edge of the flag, directly beside the pole.
     this.geometry = new THREE.PlaneGeometry(width, height, cols, rows);
-    this.geometry.rotateY(Math.PI / 2);
     this.geometry.translate(-width / 2, height / 2, 0);
     this.positionAttribute = this.geometry.attributes.position;
     this.positionAttribute.setUsage(THREE.DynamicDrawUsage);
     const defaultCanvas = this.makeDefaultFlag();
-    this.material = new THREE.MeshPhysicalMaterial({ map: new THREE.CanvasTexture(defaultCanvas), side: THREE.DoubleSide, roughness: .56, metalness: .02, sheen: .5, sheenColor: new THREE.Color(0xffd5c4), sheenRoughness: .22, clearcoat: .08, alphaTest: .02 });
+    // A flag is a porous, matte textile: broad soft highlights, slight
+    // subsurface/transmitted light, and no clear-coat shell or metallic sheen.
+    this.material = new THREE.MeshPhysicalMaterial({
+      map: new THREE.CanvasTexture(defaultCanvas),
+      side: THREE.DoubleSide,
+      roughness: .82,
+      metalness: 0,
+      sheen: .2,
+      sheenColor: new THREE.Color(0xffb7a5),
+      sheenRoughness: .72,
+      clearcoat: 0,
+      specularIntensity: .16,
+      transmission: .1,
+      thickness: .006,
+      ior: 1.2,
+      transparent: true,
+      opacity: .94,
+      alphaTest: .02
+    });
     this.mesh = new THREE.Mesh(this.geometry, this.material);
-    this.mesh.position.set(rig.poleX + width / 2, rig.poleTop - height / 2, 0.04);
+    this.mesh.position.set(hoist.x + width / 2, hoist.topY - height / 2, 0.04);
   }
 
   makeDefaultFlag() {
@@ -166,26 +213,72 @@ class ClothSimulation {
   buildConstraints() {
     const add = (a, b, stiffness) => this.constraints.push({ a, b, distance: this.distance(a, b), stiffness });
     for (let y = 0; y <= this.rows; y++) for (let x = 0; x <= this.cols; x++) {
-      if (x < this.cols) add(this.index(x, y), this.index(x + 1, y), .97);
-      if (y < this.rows) add(this.index(x, y), this.index(x, y + 1), .97);
-      if (x < this.cols && y < this.rows) { add(this.index(x, y), this.index(x + 1, y + 1), .82); add(this.index(x + 1, y), this.index(x, y + 1), .82); }
-      if (x < this.cols - 1) add(this.index(x, y), this.index(x + 2, y), .12);
-      if (y < this.rows - 1) add(this.index(x, y), this.index(x, y + 2), .12);
+      if (x < this.cols) add(this.index(x, y), this.index(x + 1, y), .88);
+      if (y < this.rows) add(this.index(x, y), this.index(x, y + 1), .9);
+      if (x < this.cols && y < this.rows) { add(this.index(x, y), this.index(x + 1, y + 1), .58); add(this.index(x + 1, y), this.index(x, y + 1), .58); }
+      if (x < this.cols - 1) add(this.index(x, y), this.index(x + 2, y), .035);
+      if (y < this.rows - 1) add(this.index(x, y), this.index(x, y + 2), .035);
     }
   }
 
   distance(a, b) { const ap = a * 3; const bp = b * 3; const dx = this.rest[ap] - this.rest[bp]; const dy = this.rest[ap + 1] - this.rest[bp + 1]; return Math.hypot(dx, dy); }
 
+  resolveSelfCollisions() {
+    const cellSize = .052;
+    const minimumDistance = .032;
+    const buckets = new Map();
+    const width = this.cols + 1;
+    const cellKey = (x, y, z) => `${Math.floor(x / cellSize)},${Math.floor(y / cellSize)},${Math.floor(z / cellSize)}`;
+    for (let i = 0; i < this.count; i++) {
+      const p = i * 3;
+      const key = cellKey(this.positions[p], this.positions[p + 1], this.positions[p + 2]);
+      let bucket = buckets.get(key);
+      if (!bucket) buckets.set(key, bucket = []);
+      bucket.push(i);
+    }
+    for (let i = 0; i < this.count; i++) {
+      const p = i * 3;
+      const cx = Math.floor(this.positions[p] / cellSize);
+      const cy = Math.floor(this.positions[p + 1] / cellSize);
+      const cz = Math.floor(this.positions[p + 2] / cellSize);
+      const ix = i % width;
+      const iy = Math.floor(i / width);
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = -1; oz <= 1; oz++) {
+        const bucket = buckets.get(`${cx + ox},${cy + oy},${cz + oz}`);
+        if (!bucket) continue;
+        for (const j of bucket) {
+          if (j <= i) continue;
+          const jx = j % width;
+          const jy = Math.floor(j / width);
+          // Structural neighbours already have distance constraints; only
+          // repel non-local layers that fold through one another.
+          if (Math.abs(ix - jx) <= 2 && Math.abs(iy - jy) <= 2) continue;
+          const q = j * 3;
+          const dx = this.positions[q] - this.positions[p];
+          const dy = this.positions[q + 1] - this.positions[p + 1];
+          const dz = this.positions[q + 2] - this.positions[p + 2];
+          const distance = Math.hypot(dx, dy, dz);
+          if (distance >= minimumDistance) continue;
+          const safeDistance = distance || .0001;
+          const correction = (minimumDistance - safeDistance) / safeDistance * .5;
+          const moveI = this.pinned[i] ? 0 : correction;
+          const moveJ = this.pinned[j] ? 0 : correction;
+          const total = moveI + moveJ || 1;
+          if (!this.pinned[i]) { this.positions[p] -= dx * moveI / total; this.positions[p + 1] -= dy * moveI / total; this.positions[p + 2] -= dz * moveI / total; }
+          if (!this.pinned[j]) { this.positions[q] += dx * moveJ / total; this.positions[q + 1] += dy * moveJ / total; this.positions[q + 2] += dz * moveJ / total; }
+        }
+      }
+    }
+  }
+
   pinToRope() {
     for (let y = 0; y <= this.rows; y++) {
-      const i = this.index(0, y) * 3; const py = this.height / 2 - y / this.rows * this.height;
+      const i = this.index(0, y) * 3;
       const t = y / this.rows;
-      const ropeX = rig.poleX;
-      const ropeY = rig.poleTop - t * this.height - 0.055 * Math.sin(t * Math.PI);
-      const ropeZ = 0.16 + 0.045 * Math.sin(t * Math.PI);
-      const localX = ropeX - this.mesh.position.x;
-      const localY = ropeY - this.mesh.position.y;
-      const localZ = ropeZ - this.mesh.position.z;
+      const point = hoist.point(t);
+      const localX = point.x - this.mesh.position.x;
+      const localY = point.y - this.mesh.position.y;
+      const localZ = point.z - this.mesh.position.z;
       this.positions[i] = localX; this.positions[i + 1] = localY; this.positions[i + 2] = localZ;
       this.previous[i] = localX; this.previous[i + 1] = localY; this.previous[i + 2] = localZ;
     }
@@ -197,25 +290,50 @@ class ClothSimulation {
     // A broad streamwise component keeps the silk open; the smaller normal
     // component creates the deep rolling folds without collapsing the sail.
     this.windVector.set(1.6 + wind * 8.0, 0, 2.8 + wind * 4.0);
+    this.windDirection.copy(this.windVector).normalize();
     for (let y = 0; y <= this.rows; y++) for (let x = 0; x <= this.cols; x++) {
       const i = this.index(x, y); const p = i * 3;
       if (this.pinned[i]) continue;
-      const vx = (this.positions[p] - this.previous[p]) * .985;
-      const vy = (this.positions[p + 1] - this.previous[p + 1]) * .985;
-      const vz = (this.positions[p + 2] - this.previous[p + 2]) * .985;
+      // Slightly damped spring motion gives folds a soft cloth-like return
+      // instead of the rigid, rubber-sheet snap of over-constrained cloth.
+      const vx = (this.positions[p] - this.previous[p]) * .972;
+      const vy = (this.positions[p + 1] - this.previous[p + 1]) * .972;
+      const vz = (this.positions[p + 2] - this.previous[p + 2]) * .972;
       this.previous[p] = this.positions[p]; this.previous[p + 1] = this.positions[p + 1]; this.previous[p + 2] = this.positions[p + 2];
       const normalizedX = x / this.cols;
-      const gust = 0.76 + Math.sin(time * 1.8 + normalizedX * 9.0) * 0.34 + Math.sin(time * 3.9 + y * 1.6) * .22;
-      const silkWave = Math.sin(time * 2.6 + normalizedX * 11.0 + (y / this.rows) * 4.0) * 0.55;
+      const normalizedY = y / this.rows;
+      const gust = 0.76 + Math.sin(time * 1.8 + normalizedX * 9.0) * 0.34 + Math.sin(time * 3.9 + normalizedY * 8.0) * .22;
+      // Use a two-dimensional travelling phase.  Its Y component makes a
+      // crease run diagonally through the flag instead of repeating as flat
+      // horizontal bands across every row.
+      const diagonalPhase = time * 2.4 + normalizedX * 8.8 + normalizedY * 9.6 + Math.sin(normalizedX * 3.2 + time * .6) * .8;
+      const verticalPhase = time * 2.05 + normalizedX * 15.0 + normalizedY * 2.4 + Math.sin(normalizedY * 4.0 + time) * .55;
+      const diagonalFold = Math.sin(verticalPhase) * .62 + Math.sin(diagonalPhase) * .38 + Math.sin(diagonalPhase * 1.7 - normalizedY * 3.0) * .12;
       const swirl = autoWind ? Math.sin(time * .74) * normalizedX * .48 : 0;
-      const forceX = this.windVector.x * (gust * gustiness / 100) + swirl;
-      const forceZ = this.windVector.z * (gust * gustiness / 100) * (0.52 + normalizedX * .8) + silkWave * this.windVector.z * (0.46 + normalizedX * .35);
+      const tangentX = this.tmp;
+      const tangentY = this.tmp2;
+      const normal = this.tmp3;
+      const left = this.index(Math.max(0, x - 1), y) * 3;
+      const right = this.index(Math.min(this.cols, x + 1), y) * 3;
+      const above = this.index(x, Math.max(0, y - 1)) * 3;
+      const below = this.index(x, Math.min(this.rows, y + 1)) * 3;
+      tangentX.set(this.positions[right] - this.positions[left], this.positions[right + 1] - this.positions[left + 1], this.positions[right + 2] - this.positions[left + 2]);
+      tangentY.set(this.positions[below] - this.positions[above], this.positions[below + 1] - this.positions[above + 1], this.positions[below + 2] - this.positions[above + 2]);
+      normal.crossVectors(tangentX, tangentY).normalize();
+      // Aerodynamic pressure is applied only through the local surface
+      // normal. Folded/back-facing layers therefore lose the direct wind
+      // impulse instead of being pushed through the front layer.
+      const normalWind = normal.dot(this.windDirection);
+      const pressure = normalWind * Math.abs(normalWind) * (0.65 + normalizedX * 1.15) * (gust * gustiness / 100);
+      const forceX = this.windVector.x * (gust * gustiness / 100) + swirl + normal.x * pressure * 2.4;
+      const forceZ = this.windVector.z * (gust * gustiness / 100) * (0.65 + normalizedX * .35) + diagonalFold * this.windVector.z * (0.48 + normalizedX * .52) + normal.z * pressure * 3.6;
       const edgeFlutter = normalizedX * normalizedX * (Math.sin(time * 5.2 + y * .92) + Math.sin(time * 7.1 - y * .47) * .5);
+      const diagonalLift = Math.cos(diagonalPhase + .65) * (0.22 + normalizedX * .78);
       this.positions[p] += vx + forceX * dt2 * 2.8;
-      this.positions[p + 1] += vy - 1.5 * dt2 + edgeFlutter * (2.2 + wind * 4.2) * dt2 * 5.4;
+      this.positions[p + 1] += vy - 1.5 * dt2 + (edgeFlutter * (2.2 + wind * 4.2) + diagonalLift * (0.8 + wind * 1.8) + normal.y * pressure * 2.1) * dt2 * 5.4;
       this.positions[p + 2] += vz + forceZ * dt2 * 2.1;
     }
-    for (let iteration = 0; iteration < 9; iteration++) {
+    for (let iteration = 0; iteration < 7; iteration++) {
       for (const c of this.constraints) {
         const ap = c.a * 3; const bp = c.b * 3;
         const dx = this.positions[bp] - this.positions[ap]; const dy = this.positions[bp + 1] - this.positions[ap + 1]; const dz = this.positions[bp + 2] - this.positions[ap + 2];
@@ -225,6 +343,7 @@ class ClothSimulation {
         else if (aPinned && !bPinned) { this.positions[bp] -= dx * correction; this.positions[bp + 1] -= dy * correction; this.positions[bp + 2] -= dz * correction; }
         else if (!aPinned && bPinned) { this.positions[ap] += dx * correction; this.positions[ap + 1] += dy * correction; this.positions[ap + 2] += dz * correction; }
       }
+      this.resolveSelfCollisions();
       this.pinToRope();
       const floor = -this.height / 2 - 0.08;
       for (let y = 0; y <= this.rows; y++) for (let x = 1; x <= this.cols; x++) {
@@ -254,7 +373,7 @@ function setCameraFromUI() {
 function syncCameraUI() {
   const offset = camera.position.clone().sub(cameraTarget); const spherical = new THREE.Spherical().setFromVector3(offset);
   const azimuth = THREE.MathUtils.radToDeg(spherical.theta); const elevation = 90 - THREE.MathUtils.radToDeg(spherical.phi);
-  $("cameraAzimuth").value = THREE.MathUtils.clamp(azimuth, -70, 70); $("cameraElevation").value = THREE.MathUtils.clamp(elevation, -10, 55); $("cameraDistance").value = spherical.radius.toFixed(1); updateAllRangeProgress(); updateCameraLabels();
+  $("cameraAzimuth").value = THREE.MathUtils.clamp(azimuth, -70, 70); $("cameraElevation").value = THREE.MathUtils.clamp(elevation, -90, 90); $("cameraDistance").value = spherical.radius.toFixed(1); updateAllRangeProgress(); updateCameraLabels();
 }
 function updateCameraLabels() { $("azimuthValue").innerHTML = `${formatAngle($("cameraAzimuth").value)}<small>°</small>`; $("elevationValue").innerHTML = `${formatAngle($("cameraElevation").value)}<small>°</small>`; $("distanceValue").innerHTML = `${Number($("cameraDistance").value).toFixed(1)}<small>M</small>`; }
 function formatAngle(value) { const number = Number(value); return number < 0 ? `−${Math.abs(number)}` : number; }
@@ -271,10 +390,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
 function updateBackgroundRotation(value) {
   const radians = THREE.MathUtils.degToRad(Number(value));
-  if (scene.background?.isTexture) {
-    if (scene.backgroundRotation) scene.backgroundRotation.y = radians;
-    else { scene.background.center.set(.5, .5); scene.background.rotation = radians; }
-  }
+  backgroundDome.rotation.y = -radians;
   if (scene.environment?.isTexture && scene.environmentRotation) scene.environmentRotation.y = radians;
   $("backgroundRotationValue").innerHTML = `${formatAngle(value)}<small>°</small>`;
 }
@@ -288,8 +404,14 @@ async function loadEnvironment(url, label = "CUSTOM ATMOSPHERE") {
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    scene.background = texture;
+    scene.background = new THREE.Color(0x080b12);
     scene.environment = texture;
+    const domeTexture = texture.clone();
+    domeTexture.mapping = THREE.UVMapping;
+    domeTexture.needsUpdate = true;
+    backgroundDomeMaterial.map?.dispose();
+    backgroundDomeMaterial.map = domeTexture;
+    backgroundDomeMaterial.needsUpdate = true;
     updateBackgroundRotation($("backgroundRotation").value);
   } catch (error) {
     console.warn("EXR background could not be loaded", error);
@@ -322,6 +444,7 @@ window.addEventListener("resize", onResize); onResize();
 function animate(now) {
   requestAnimationFrame(animate); const dt = Math.min((now - state.lastFrame) / 1000, .05); state.lastFrame = now; state.time += dt;
   for (let i = 0; i < 2; i++) cloth.step(dt / 2, state.wind, state.gustiness, state.time, state.autoWind);
+  backgroundDome.position.copy(camera.position);
   controls.update(); renderer.render(scene, camera);
   state.frames++;
 }
