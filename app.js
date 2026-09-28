@@ -5,21 +5,26 @@ import { EXRLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/j
 const $ = (id) => document.getElementById(id);
 const assets = {
   environments: [
-    ["xiequ_yuan_2k.exr", "XIEQU YUAN / 2K"],
-    ["the_sky_is_on_fire_2k.exr", "THE SKY IS ON FIRE / 2K"],
-    ["industrial_sunset_02_puresky_2k.exr", "INDUSTRIAL SUNSET / 2K"],
-    ["hay_bales_2k.exr", "HAY BALES / 2K"],
-    ["golden_gate_hills_2k.exr", "GOLDEN GATE HILLS / 2K"],
-    ["farmland_overcast_2k.exr", "FARMLAND OVERCAST / 2K"],
-    ["cedar_bridge_sunset_2_2k.exr", "CEDAR BRIDGE SUNSET / 2K"],
-    ["camdeboo_road_2k.exr", "CAMDEBOO ROAD / 2K"],
-    ["belfast_sunset_puresky_2k.exr", "BELFAST SUNSET / 2K"]
+    ["xiequ_yuan_4k.exr", "XIEQU YUAN / 4K"],
+    ["the_sky_is_on_fire_4k.exr", "THE SKY IS ON FIRE / 4K"],
+    ["industrial_sunset_02_puresky_4k.exr", "INDUSTRIAL SUNSET / 4K"],
+    ["hay_bales_4k.exr", "HAY BALES / 4K"],
+    ["golden_gate_hills_4k.exr", "GOLDEN GATE HILLS / 4K"],
+    ["farmland_overcast_4k.exr", "FARMLAND OVERCAST / 4K"],
+    ["cedar_bridge_sunset_2_4k.exr", "CEDAR BRIDGE SUNSET / 4K"],
+    ["camdeboo_road_4k.exr", "CAMDEBOO ROAD / 4K"],
+    ["belfast_sunset_puresky_4k.exr", "BELFAST SUNSET / 4K"],
+    ["sunny_rose_garden_4k.exr", "SUNNY ROSE GARDEN / 4K"],
+    ["minedump_flats_4k.exr", "MINEDUMP FLATS / 4K"],
+    ["ladybrand_heritage_house_4k.exr", "LADYBRAND HERITAGE HOUSE / 4K"]
   ],
   defaultFlag: "signal-red"
 };
 
 const state = {
-  wind: 58,
+  // Wind is exposed in m/s so the control has a physically meaningful unit.
+  // 16 m/s is about 58 km/h, matching the previous default energy level.
+  wind: 16,
   gustiness: 82,
   autoWind: true,
   time: 0,
@@ -67,16 +72,15 @@ rimLight.position.set(4, 2, -4);
 scene.add(rimLight);
 
 const rig = { poleX: -1.55, poleBottom: -0.35, poleTop: 5.25, flagHeight: 2.1 };
-// Shared hoist line for the pulley, halyard, grommets, and pinned cloth.
-const hoist = {
+// The hoist edge is fixed directly to the mast. There is intentionally no
+// visible pulley, halyard, rope, or grommet in this simplified rig.
+const mastAnchor = {
   x: rig.poleX,
-  z: 0.065,
-  pulleyY: rig.poleTop - 0.10,
-  topY: rig.poleTop - 0.155,
+  z: 0.045,
+  topY: rig.poleTop - 0.105,
   get bottomY() { return this.topY - rig.flagHeight; },
   point(t) {
-    const sag = 0.028 * Math.sin(t * Math.PI);
-    return new THREE.Vector3(this.x, this.topY - t * rig.flagHeight - sag, this.z + 0.014 * Math.sin(t * Math.PI));
+    return new THREE.Vector3(this.x, this.topY - t * rig.flagHeight, this.z);
   }
 };
 const poleMaterial = new THREE.MeshPhysicalMaterial({ color: 0x718096, metalness: 1, roughness: 0.14, clearcoat: 0.82, clearcoatRoughness: 0.1 });
@@ -89,49 +93,6 @@ scene.add(cap);
 const base = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.13, 32), new THREE.MeshPhysicalMaterial({ color: 0x536078, metalness: 1, roughness: .18, clearcoat: .72 }));
 base.position.set(rig.poleX, rig.poleBottom, 0);
 scene.add(base);
-
-const ropeMaterial = new THREE.MeshStandardMaterial({ color: 0x8a512e, roughness: .96, metalness: 0.01 });
-const ropePoints = Array.from({ length: 13 }, (_, index) => {
-  return hoist.point(index / 12);
-});
-const ropeCurve = new THREE.CatmullRomCurve3(ropePoints);
-const rope = new THREE.Mesh(new THREE.TubeGeometry(ropeCurve, 32, 0.012, 8, false), ropeMaterial);
-scene.add(rope);
-
-const pulleyMaterial = new THREE.MeshPhysicalMaterial({ color: 0x8b96aa, metalness: 1, roughness: .16, clearcoat: .75, clearcoatRoughness: .1 });
-const pulleyGroup = new THREE.Group();
-pulleyGroup.position.set(hoist.x, hoist.pulleyY, hoist.z);
-const wheel = new THREE.Mesh(new THREE.TorusGeometry(.045, .008, 8, 20), pulleyMaterial);
-pulleyGroup.add(wheel);
-const pulleyAxle = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .11, 12), pulleyMaterial);
-pulleyAxle.rotation.x = Math.PI / 2;
-pulleyGroup.add(pulleyAxle);
-scene.add(pulleyGroup);
-
-const halyardPoints = [
-  new THREE.Vector3(hoist.x, hoist.topY, hoist.z),
-  new THREE.Vector3(hoist.x + .038, hoist.pulleyY - .028, hoist.z),
-  new THREE.Vector3(hoist.x + .045, hoist.pulleyY + .012, hoist.z),
-  new THREE.Vector3(hoist.x, hoist.pulleyY + .045, hoist.z),
-  new THREE.Vector3(hoist.x - .045, hoist.pulleyY + .012, hoist.z),
-  new THREE.Vector3(hoist.x - .052, hoist.pulleyY - .015, hoist.z),
-  new THREE.Vector3(hoist.x - .052, rig.poleBottom + .22, hoist.z),
-  new THREE.Vector3(hoist.x - .052, rig.poleBottom + .10, hoist.z)
-];
-const halyardCurve = new THREE.CatmullRomCurve3(halyardPoints, false, "centripetal", 0.35);
-const halyard = new THREE.Mesh(new THREE.TubeGeometry(halyardCurve, 56, .008, 7, false), ropeMaterial);
-scene.add(halyard);
-
-// Two small metal grommets sit on the hoist edge of the flag. The pulley
-// wheels remain at the cap; the thin halyard runs down the back of the pole.
-const grommetMaterial = new THREE.MeshPhysicalMaterial({ color: 0xa9b3c4, metalness: 1, roughness: .22, clearcoat: .7, clearcoatRoughness: .12 });
-const grommets = new THREE.Group();
-for (const t of [0, 1]) {
-  const grommet = new THREE.Mesh(new THREE.TorusGeometry(.032, .007, 8, 20), grommetMaterial);
-  grommet.position.copy(hoist.point(t));
-  grommets.add(grommet);
-}
-scene.add(grommets);
 
 // A UV-mapped inverted sphere makes the EXR visibly rotatable around the camera.
 const backgroundDomeMaterial = new THREE.MeshBasicMaterial({ side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false });
@@ -147,12 +108,17 @@ for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = 
 }
 
 class ClothSimulation {
-  constructor(width = 2.9, height = rig.flagHeight, cols = 48, rows = 30) {
+  constructor(width = 2.9, height = rig.flagHeight, cols = 48, rows = 64) {
     this.width = width; this.height = height; this.cols = cols; this.rows = rows;
     // Keep the physical cloth grid modest for collision performance, while
     // rendering a denser interpolated surface so the silhouette does not
     // expose the simulation cells at close camera distances.
-    this.renderCols = cols * 1; this.renderRows = rows * 1;
+    // Keep collision/physics cost at 48x64, but render an interpolated
+    // 128x128 surface. The visible cloth therefore has more than 100
+    // subdivisions across its long axis, so physical cells cannot read as
+    // square patches while the solver remains fast.
+    this.renderCols = Math.max(cols * 2, 128);
+    this.renderRows = Math.max(rows * 2, 128);
     this.count = (cols + 1) * (rows + 1);
     this.positions = new Float32Array(this.count * 3);
     this.previous = new Float32Array(this.count * 3);
@@ -170,7 +136,7 @@ class ClothSimulation {
     this.windDirection = new THREE.Vector3();
     this.reset();
     this.buildConstraints();
-    // X is the hoist-to-fly direction; the pinned column is therefore the
+    // X is the mast-to-fly direction; the pinned column is therefore the
     // actual left edge of the flag, directly beside the pole.
     this.geometry = new THREE.PlaneGeometry(width, height, this.renderCols, this.renderRows);
     this.geometry.translate(-width / 2, height / 2, 0);
@@ -182,14 +148,14 @@ class ClothSimulation {
     this.material = new THREE.MeshPhysicalMaterial({
       map: new THREE.CanvasTexture(defaultCanvas),
       side: THREE.DoubleSide,
-      roughness: .82,
+      roughness: .92,
       metalness: 0,
-      sheen: .2,
+      sheen: .1,
       sheenColor: new THREE.Color(0xffb7a5),
       sheenRoughness: .72,
       clearcoat: 0,
       specularIntensity: .16,
-      transmission: .1,
+      transmission: .05,
       thickness: .006,
       ior: 1.2,
       transparent: true,
@@ -197,7 +163,7 @@ class ClothSimulation {
       alphaTest: .02
     });
     this.mesh = new THREE.Mesh(this.geometry, this.material);
-    this.mesh.position.set(hoist.x + width / 2, hoist.topY - height / 2, 0.04);
+    this.mesh.position.set(mastAnchor.x + width / 2, mastAnchor.topY - height / 2, 0.04);
   }
 
   makeDefaultFlag() {
@@ -237,6 +203,11 @@ class ClothSimulation {
       // Diagonal shear constraints are softer than warp/weft so diagonal
       // creases can form without allowing elastic skew.
       if (x < this.cols && y < this.rows) { add(this.index(x, y), this.index(x + 1, y + 1), .96); add(this.index(x + 1, y), this.index(x, y + 1), .96); }
+      // // Second-neighbour bending constraints give the textile a finite bend
+      // // stiffness. Without them each solver row can fold independently and
+      // // the lighting exposes those rows as repeated horizontal bands.
+      // if (x + 2 <= this.cols) add(this.index(x, y), this.index(x + 2, y), .24);
+      // if (y + 2 <= this.rows) add(this.index(x, y), this.index(x, y + 2), .30);
     }
   }
 
@@ -304,7 +275,7 @@ class ClothSimulation {
   // may slide around it but cannot pass through its cylindrical surface.
   resolvePoleCollision() {
     const poleLocalX = -this.width / 2;
-    const poleLocalZ = hoist.z - this.mesh.position.z;
+    const poleLocalZ = mastAnchor.z - this.mesh.position.z;
     const minimumDistance = .064;
     for (let i = 0; i < this.count; i++) {
       if (this.pinned[i]) continue;
@@ -346,37 +317,55 @@ class ClothSimulation {
     const array = this.positionAttribute.array;
     const renderWidth = this.renderCols + 1;
     const simulationWidth = this.cols + 1;
+    const cubic = (p0, p1, p2, p3, t) => {
+      const t2 = t * t; const t3 = t2 * t;
+      const value = 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+      // Catmull-Rom is smooth, but can overshoot at a sharp fold. Clamping
+      // to the local sample range preserves the inextensible silhouette.
+      return THREE.MathUtils.clamp(value, Math.min(p0, p1, p2, p3), Math.max(p0, p1, p2, p3));
+    };
     for (let y = 0; y <= this.renderRows; y++) {
       const simulationY = y / this.renderRows * this.rows;
-      const y0 = Math.floor(simulationY);
-      const y1 = Math.min(this.rows, y0 + 1);
-      const fy = simulationY - y0;
+      const y1 = Math.floor(simulationY);
+      const y2 = Math.min(this.rows, y1 + 1);
+      const y0 = Math.max(0, y1 - 1);
+      const y3 = Math.min(this.rows, y2 + 1);
+      const fy = simulationY - y1;
       for (let x = 0; x <= this.renderCols; x++) {
         const simulationX = x / this.renderCols * this.cols;
-        const x0 = Math.floor(simulationX);
-        const x1 = Math.min(this.cols, x0 + 1);
-        const fx = simulationX - x0;
-        const a = (y0 * simulationWidth + x0) * 3;
-        const b = (y0 * simulationWidth + x1) * 3;
-        const c = (y1 * simulationWidth + x0) * 3;
-        const d = (y1 * simulationWidth + x1) * 3;
-        const wA = (1 - fx) * (1 - fy); const wB = fx * (1 - fy);
-        const wC = (1 - fx) * fy; const wD = fx * fy;
+        const x1 = Math.floor(simulationX);
+        const x2 = Math.min(this.cols, x1 + 1);
+        const x0 = Math.max(0, x1 - 1);
+        const x3 = Math.min(this.cols, x2 + 1);
+        const fx = simulationX - x1;
+        const rowIndices = [y0, y1, y2, y3];
+        const colIndices = [x0, x1, x2, x3];
         const p = (y * renderWidth + x) * 3;
-        array[p] = this.positions[a] * wA + this.positions[b] * wB + this.positions[c] * wC + this.positions[d] * wD;
-        array[p + 1] = this.positions[a + 1] * wA + this.positions[b + 1] * wB + this.positions[c + 1] * wC + this.positions[d + 1] * wD;
-        array[p + 2] = this.positions[a + 2] * wA + this.positions[b + 2] * wB + this.positions[c + 2] * wC + this.positions[d + 2] * wD;
+        for (let component = 0; component < 3; component++) {
+          const rowValues = [];
+          for (const row of rowIndices) {
+            const base = row * simulationWidth;
+            rowValues.push(cubic(
+              this.positions[(base + colIndices[0]) * 3 + component],
+              this.positions[(base + colIndices[1]) * 3 + component],
+              this.positions[(base + colIndices[2]) * 3 + component],
+              this.positions[(base + colIndices[3]) * 3 + component],
+              fx
+            ));
+          }
+          array[p + component] = cubic(rowValues[0], rowValues[1], rowValues[2], rowValues[3], fy);
+        }
       }
     }
     this.positionAttribute.needsUpdate = true;
     this.geometry.computeVertexNormals();
   }
 
-  pinToRope() {
+  pinToMast() {
     for (let y = 0; y <= this.rows; y++) {
       const i = this.index(0, y) * 3;
       const t = y / this.rows;
-      const point = hoist.point(t);
+      const point = mastAnchor.point(t);
       const localX = point.x - this.mesh.position.x;
       const localY = point.y - this.mesh.position.y;
       const localZ = point.z - this.mesh.position.z;
@@ -388,10 +377,12 @@ class ClothSimulation {
   step(dt, windSpeed, gustiness, time, autoWind) {
     this.contactNormals.fill(0);
     const dt2 = Math.min(dt, 1 / 30) ** 2;
-    const wind = windSpeed / 100;
+    const wind = windSpeed / 50;
     // The squared pressure below gives the sail a real speed response:
     // doubling wind speed produces roughly four times the pressure.
-    const windStrength = (windSpeed / 58) * (0.78 + gustiness / 100 * .52);
+    // 16 m/s is the default reference wind. The upper control limit is
+    // 50 m/s (180 km/h), so stronger settings remain meaningfully stronger.
+    const windStrength = (windSpeed / 16) * (0.78 + gustiness / 100 * .52);
     // The wind direction is the only preferred travel direction. All motion
     // below comes from aerodynamic pressure/drag, gravity, and PBD solving.
     // A rising crosswind makes the free edge climb naturally through drag;
@@ -399,7 +390,11 @@ class ClothSimulation {
     // The dominant component is normal to the flag surface, so pressure
     // inflates the cloth instead of dragging its whole frame upward. Small
     // horizontal/upward components make the fly edge rise naturally.
-    this.windDirection.set(.70, .34, .62).normalize();
+    // The wind is a steady diagonal crosswind with a real upward component;
+    // its lift comes from airflow drag and local surface normals, not a pose
+    // target. This keeps the free edge from collapsing under gravity at the
+    // default 16 m/s setting.
+    this.windDirection.set(.70, .62, .62).normalize();
     if (autoWind) {
       // Keep the mean wind direction almost steady; the spatial gust field
       // below supplies natural variation without periodically releasing the
@@ -459,11 +454,11 @@ class ClothSimulation {
       const normalWind = normal.dot(flow);
       const pressure = THREE.MathUtils.clamp(normalWind * Math.abs(normalWind) * (0.95 + normalizedX * 1.15), -1.45, 1.45);
       const normalForce = this.tmp4.copy(normal).multiplyScalar(pressure * 4.2);
-      const tangentForce = flow.addScaledVector(normal, -normalWind).multiplyScalar(.32);
+      const tangentForce = flow.addScaledVector(normal, -normalWind).multiplyScalar(.78);
       const forceX = normalForce.x + tangentForce.x;
       const forceY = normalForce.y + tangentForce.y;
       const forceZ = normalForce.z + tangentForce.z;
-      const aerodynamicScale = 5.2;
+      const aerodynamicScale = 6.8;
       this.positions[p] += vx + forceX * dt2 * aerodynamicScale;
       this.positions[p + 1] += vy - 9.8 * dt2 + forceY * dt2 * aerodynamicScale;
       this.positions[p + 2] += vz + forceZ * dt2 * aerodynamicScale;
@@ -484,14 +479,14 @@ class ClothSimulation {
       // distance constraints restore inextensibility on every iteration.
       if (iteration === 2 || iteration === 6 || iteration === 10) this.resolveSelfCollisions();
       this.resolvePoleCollision();
-      this.pinToRope();
+      this.pinToMast();
     }
     // A final contact projection removes any residual inter-layer overlap
     // after the inextensibility solve; it does not prescribe a pose.
     this.contactNormals.fill(0);
     this.resolveSelfCollisions();
     this.resolvePoleCollision();
-    this.pinToRope();
+    this.pinToMast();
     this.applyContactVelocityResponse();
     this.updateRenderGeometry();
   }
@@ -515,7 +510,7 @@ class ClothSimulation {
     this.positionAttribute.setUsage(THREE.DynamicDrawUsage);
     this.mesh.geometry = this.geometry;
     oldGeometry.dispose();
-    this.mesh.position.set(hoist.x + width / 2, hoist.topY - this.height / 2, 0.04);
+    this.mesh.position.set(mastAnchor.x + width / 2, mastAnchor.topY - this.height / 2, 0.04);
     this.updateRenderGeometry();
   }
 
@@ -530,21 +525,33 @@ function setCameraFromUI() {
   const elevation = THREE.MathUtils.degToRad(Number($("cameraElevation").value));
   const distance = Number($("cameraDistance").value);
   const polar = Math.PI / 2 - elevation;
-  camera.position.set(Math.sin(azimuth) * Math.sin(polar) * distance, Math.cos(polar) * distance + cameraTarget.y, Math.cos(azimuth) * Math.sin(polar) * distance);
-  camera.lookAt(cameraTarget); controls.target.copy(cameraTarget); controls.update();
+  const target = controls.target;
+  camera.position.set(
+    Math.sin(azimuth) * Math.sin(polar) * distance + target.x,
+    Math.cos(polar) * distance + target.y,
+    Math.cos(azimuth) * Math.sin(polar) * distance + target.z
+  );
+  // Keep the camera upright and preserve any target translation made by
+  // right-button screen-space panning.
+  camera.up.set(0, 1, 0);
+  camera.lookAt(target);
+  controls.update();
 }
 
 function syncCameraUI() {
-  const offset = camera.position.clone().sub(cameraTarget); const spherical = new THREE.Spherical().setFromVector3(offset);
-  const azimuth = THREE.MathUtils.radToDeg(spherical.theta); const elevation = 90 - THREE.MathUtils.radToDeg(spherical.phi);
-  $("cameraAzimuth").value = THREE.MathUtils.clamp(azimuth, -70, 70); $("cameraElevation").value = THREE.MathUtils.clamp(elevation, -90, 90); $("cameraDistance").value = spherical.radius.toFixed(1); updateAllRangeProgress(); updateCameraLabels();
+  const offset = camera.position.clone().sub(controls.target); const spherical = new THREE.Spherical().setFromVector3(offset);
+  let azimuth = THREE.MathUtils.radToDeg(spherical.theta);
+  if (azimuth > 180) azimuth -= 360;
+  if (azimuth < -180) azimuth += 360;
+  const elevation = 90 - THREE.MathUtils.radToDeg(spherical.phi);
+  $("cameraAzimuth").value = THREE.MathUtils.clamp(azimuth, -180, 180); $("cameraElevation").value = THREE.MathUtils.clamp(elevation, -90, 90); $("cameraDistance").value = THREE.MathUtils.clamp(spherical.radius, 3.5, 12).toFixed(1); updateAllRangeProgress(); updateCameraLabels();
 }
 function updateCameraLabels() { $("azimuthValue").innerHTML = `${formatAngle($("cameraAzimuth").value)}<small>°</small>`; $("elevationValue").innerHTML = `${formatAngle($("cameraElevation").value)}<small>°</small>`; $("distanceValue").innerHTML = `${Number($("cameraDistance").value).toFixed(1)}<small>M</small>`; }
 function formatAngle(value) { const number = Number(value); return number < 0 ? `−${Math.abs(number)}` : number; }
 setCameraFromUI();
 
 function updateAllRangeProgress() { document.querySelectorAll("input[type=range]").forEach((input) => { const percent = ((input.value - input.min) / (input.max - input.min)) * 100; input.style.setProperty("--range-progress", `${percent}%`); }); }
-function updateSimulationLabels() { $("windValue").innerHTML = `${state.wind}<small>KM/H</small>`; $("gustValue").innerHTML = `${state.gustiness}<small>%</small>`; }
+function updateSimulationLabels() { $("windValue").innerHTML = `${Number(state.wind).toFixed(1)}<small>M/S</small>`; $("gustValue").innerHTML = `${state.gustiness}<small>%</small>`; }
 updateAllRangeProgress(); updateSimulationLabels();
 
 for (const [file, label] of assets.environments) { const option = document.createElement("option"); option.value = `./exr/${file}`; option.textContent = label; option.dataset.label = label; $("environmentSelect").appendChild(option); }
@@ -555,6 +562,9 @@ $("windSpeed").value = state.wind;
 $("gustiness").value = state.gustiness;
 
 const exrLoader = new EXRLoader();
+// Keep the full HDR range of the 4K files. Half-float conversion can clamp
+// very bright EXR pixels and produces visible highlight loss/warnings.
+exrLoader.setDataType(THREE.FloatType);
 const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
 function updateBackgroundRotation(value) {
@@ -569,6 +579,7 @@ async function loadEnvironment(url, label = "CUSTOM ATMOSPHERE") {
   try {
     const texture = await exrLoader.loadAsync(url);
     texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.colorSpace = THREE.LinearSRGBColorSpace;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
@@ -577,6 +588,11 @@ async function loadEnvironment(url, label = "CUSTOM ATMOSPHERE") {
     scene.environment = texture;
     const domeTexture = texture.clone();
     domeTexture.mapping = THREE.UVMapping;
+    domeTexture.colorSpace = THREE.LinearSRGBColorSpace;
+    domeTexture.minFilter = THREE.LinearFilter;
+    domeTexture.magFilter = THREE.LinearFilter;
+    domeTexture.generateMipmaps = false;
+    domeTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     domeTexture.needsUpdate = true;
     backgroundDomeMaterial.map?.dispose();
     backgroundDomeMaterial.map = domeTexture;
@@ -599,7 +615,7 @@ const flagTextureState = { source: cloth.makeDefaultFlag(), sourceAspect: null, 
 const DEFAULT_FLAG_WIDTH = 2.9;
 // The compact uploaded-flag mesh is width:height = 2:1. This is wider than
 // the default camera rig, but it lets 3:2 and portrait artwork fill the full
-// hoist height while leaving unused fly-side pixels transparent.
+// mast height while leaving unused fly-side pixels transparent.
 const COMPACT_FLAG_WIDTH = rig.flagHeight * 2;
 
 function getOrientedSourceAspect(source) {
@@ -612,7 +628,7 @@ function getOrientedSourceAspect(source) {
 
 function updateFlagMeshShape(source) {
   // Uploaded artwork up to 2:1 uses a compact 2:1 (width:height) cloth
-  // mesh. The image is height-fitted, so the hoist edge reaches both rope
+  // mesh. The image is height-fitted, so the mast edge reaches the full
   // endpoints and any remaining area is transparent on the right.
   const isCompactUploadedFlag = flagTextureState.sourceAspect !== null && getOrientedSourceAspect(source) <= 2;
   cloth.setWidth(isCompactUploadedFlag ? COMPACT_FLAG_WIDTH : DEFAULT_FLAG_WIDTH);
@@ -670,7 +686,7 @@ function makeOrientedFlagCanvas(source) {
   rotatedContext.drawImage(source, -rasterWidth / 2, -rasterHeight / 2, rasterWidth, rasterHeight);
 
   // Preserve the complete artwork instead of using cover-cropping. The
-  // hoist-side edge remains at x=0 so it stays aligned with the rope.
+  // mast-side edge remains at x=0 so it stays aligned with the pole.
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = Math.round(canvas.width * cloth.height / cloth.width);
@@ -683,7 +699,7 @@ function makeOrientedFlagCanvas(source) {
   const sourceAspect = rotated.width / rotated.height;
   // A narrow/portrait flag uses the full physical height and leaves only
   // transparent space on the fly side. Do not vertically center it, so its
-  // top edge reaches the top rope exactly.
+  // top edge reaches the top of the mast-mounted flag area exactly.
   const offsetY = sourceAspect <= flagAspect ? 0 : (canvas.height - drawHeight) / 2;
   context.drawImage(rotated, 0, offsetY, drawWidth, drawHeight);
   return canvas;
@@ -730,7 +746,7 @@ $("flagMirror")?.addEventListener("change", (event) => { const value = event.tar
 $("windSpeed").addEventListener("input", (event) => { state.wind = Number(event.target.value); updateSimulationLabels(); updateAllRangeProgress(); });
 $("gustiness").addEventListener("input", (event) => { state.gustiness = Number(event.target.value); updateSimulationLabels(); updateAllRangeProgress(); }); $("autoWind").addEventListener("change", (event) => { state.autoWind = event.target.checked; });
 for (const id of ["cameraAzimuth", "cameraElevation", "cameraDistance"]) $(id).addEventListener("input", () => { setCameraFromUI(); updateCameraLabels(); updateAllRangeProgress(); });
-$("resetViewButton").addEventListener("click", () => { $("cameraAzimuth").value = -18; $("cameraElevation").value = 12; $("cameraDistance").value = 7.2; setCameraFromUI(); updateCameraLabels(); updateAllRangeProgress(); });
+$("resetViewButton").addEventListener("click", () => { $("cameraAzimuth").value = -18; $("cameraElevation").value = 12; $("cameraDistance").value = 7.2; controls.target.copy(cameraTarget); setCameraFromUI(); updateCameraLabels(); updateAllRangeProgress(); });
 controls.addEventListener("change", syncCameraUI);
 
 function onResize() { const rect = $("canvasHost").getBoundingClientRect(); renderer.setSize(rect.width, rect.height, false); camera.aspect = rect.width / rect.height; camera.updateProjectionMatrix(); }
