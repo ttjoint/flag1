@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#080b12" />
-    <title>旗影 · Cloth Simulator</title>
+    <title>旗飘飘</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -20,17 +20,6 @@
   </head>
   <body>
     <main class="app-shell">
-      <header class="topbar">
-        <div class="brand-lockup">
-          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-          <div>
-            <p class="eyebrow">REAL-TIME CLOTH STUDY</p>
-            <h1>旗影 <span>/</span> FLAG LAB</h1>
-          </div>
-        </div>
-        <div class="status-pill"><span class="status-dot"></span><span id="simulationStatus">SIMULATION LIVE</span></div>
-      </header>
-
       <section class="stage-card" aria-label="旗帜模拟预览">
         <div id="canvasHost" class="canvas-host"></div>
       </section>
@@ -85,11 +74,13 @@
             <input id="flagInput" type="file" accept="image/svg+xml,image/png,image/jpeg,image/webp,image/gif" hidden />
             <input id="environmentInput" type="file" accept=".exr,image/*" hidden />
           </div>
+          <div class="flag-transform-grid" aria-label="旗帜悬挂方式">
+            <div class="field-group"><label for="flagRotation">旗帜旋转</label><div class="select-wrap"><select id="flagRotation"><option value="0">正常 / 0°</option><option value="90">顺时针 / 90°</option><option value="180">倒挂 / 180°</option><option value="270">逆时针 / 90°</option></select><span>⌄</span></div></div>
+            <div class="field-group"><label for="flagMirror">旗帜镜像</label><div class="select-wrap"><select id="flagMirror"><option value="none">不镜像</option><option value="horizontal">水平镜像</option><option value="vertical">垂直镜像</option><option value="both">水平 + 垂直</option></select><span>⌄</span></div></div>
+          </div>
           <div class="asset-meta"><span class="asset-thumb" id="flagThumb"><span>F</span></span><div><b id="flagFileName">default / signal-red</b><small id="flagFileType">PROCEDURAL TEXTURE · 4:3</small></div><button id="clearFlagButton" class="clear-button" type="button" aria-label="恢复默认旗帜">×</button></div>
         </div>
       </section>
-
-      <footer class="footer-bar"><span>POSITION-BASED DYNAMICS <i></i> DOUBLE-SIDED FABRIC</span><span>BUILT FOR EXPLORATION <b>✦</b></span></footer>
     </main>
     <script type="module" src="./app.js"></script>
   </body>
